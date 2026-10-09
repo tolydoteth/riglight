@@ -113,12 +113,27 @@ Brightness on the motherboard uses the effect's max-brightness field if the prot
 one, otherwise color scaling. On the RAM it's color scaling.
 
 ARGB headers (case fans/strips) get the same hardware effect as onboard zones — no
-per-LED streaming. Exact handling depends on `docs/fusion2-protocol.md`.
+per-LED streaming: RigLight sends `CC 32 00` so every header runs its hardware effect.
+
+### Fusion2 specifics (from `docs/fusion2-protocol.md`)
+
+- Open the HID collection on **MI_01 / COL02** (usage page 0xFF89, usage 0xCC); all
+  packets are 64-byte feature reports starting with report ID 0xCC.
+- Init: `CC 60` + read info report (logged by `--probe`), `CC 61` + read (5711),
+  `CC 48 00` only if the LampArray flag is set, reset registers, `CC 31 00`, `CC 32 00`.
+- Zones on the X870 EAGLE WIFI7 (OpenRGB's layout for this board, re-typed, not copied):
+  ARGB_V2_1 0x25/0x20, ARGB_V2_2 0x26/0x40, ARGB_V2_3 0x27/0x80, Chipset accent
+  0x22/0x04, LED_C 0x24/0x10. Each gets one effect packet, then `CC 28 <OR of masks>`.
+- Effect codes used: 1 static, 2 pulse, 4 color cycle; color bytes are B, G, R, 0;
+  max brightness byte 12; timings bytes 22–29 (ms, 16-bit).
+- Board identity check: RigLight reads the BIOS board name (WMI/registry) and only uses
+  this zone map on `X870 EAGLE WIFI7`; any other board → motherboard unavailable.
 
 ### Flash wear
 
-RigLight never sends packets that save to the controller's flash, if the protocol has
-any (to be confirmed by the protocol doc). Settings are restored on every launch instead.
+RigLight never sends `CC 5E` (save to flash), `CC 47` (persistence toggle), `CC 33`
+(color-order write) or `CC 34` (LED-count config, flash behaviour unverified). Settings
+are restored on every launch instead.
 
 ## Error handling
 
@@ -157,5 +172,8 @@ sync, installer, macOS.
 
 ## Open questions
 
-- Exact Fusion2 5711 zone layout and ARGB handling — answered by `docs/fusion2-protocol.md`.
+- Nothing in the Fusion2 byte layout has been tried on this board yet; the first live
+  step is `--probe` (read-only), then a single static-color apply.
+- Whether the header's color-order setting affects effect colors (if red shows as green,
+  swap order per header in Fusion2Packets — no flash writes).
 - Whether the iCUE SDK DLL needs the VC++ 2019 runtime (iCUE already installs it).
