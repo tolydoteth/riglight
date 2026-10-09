@@ -22,9 +22,17 @@ std::wstring settingsPath() {
     return dir + L"\\settings.ini";
 }
 
-std::optional<std::string> readTextFile(const std::wstring& path) {
-    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (h == INVALID_HANDLE_VALUE) return std::nullopt;
+std::optional<std::string> readTextFile(const std::wstring& path, ReadStatus* status) {
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           nullptr, OPEN_EXISTING, 0, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        const DWORD e = GetLastError();
+        if (status)
+            *status = (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND) ? ReadStatus::NotFound
+                                                                               : ReadStatus::Error;
+        return std::nullopt;
+    }
+    if (status) *status = ReadStatus::Ok;
     std::string out;
     char buf[4096];
     DWORD got = 0;

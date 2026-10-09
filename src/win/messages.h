@@ -10,6 +10,7 @@ inline constexpr UINT WM_APP_RELOAD = WM_APP + 5;           // --set: re-read se
 
 inline constexpr UINT_PTR kRetryTimerId = 1;     // 10 s device retry
 inline constexpr UINT_PTR kThrottleTimerId = 2;  // panel slider flush
+inline constexpr UINT_PTR kTrayRetryTimerId = 3; // NIM_ADD failed (shell still starting): retry
 
 inline constexpr UINT IDM_TOGGLE = 101;
 inline constexpr UINT IDM_PANEL = 102;

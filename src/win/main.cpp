@@ -40,15 +40,22 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     if (probe) return runProbe(probePath.empty() ? exeDir() + L"riglight-probe.txt" : probePath);
 
     const std::wstring path = settingsPath();
-    const auto text = readTextFile(path);
-    const bool firstRun = !text.has_value();
+    ReadStatus status = ReadStatus::Ok;
+    auto text = readTextFile(path, &status);
+    for (int i = 0; i < 10 && status == ReadStatus::Error; ++i) {  // sync/AV locks are brief
+        Sleep(200);
+        text = readTextFile(path, &status);
+    }
+    const bool firstRun = status == ReadStatus::NotFound;
+    const bool readable = status != ReadStatus::Error;  // locked/unreadable: never overwrite it
     LightState state = text ? parseSettings(*text) : LightState{};
     if (haveSet) {
         const auto s = parseStateSpec(narrow(setSpec), state);
         if (!s) return 2;
         state = *s;
     }
-    if (haveSet || firstRun) writeTextFileAtomic(path, serializeSettings(state, parseRamLeadMs(text.value_or(""))));
+    if (readable && (haveSet || firstRun))
+        writeTextFileAtomic(path, serializeSettings(state, parseRamLeadMs(text.value_or(""))));
 
     HANDLE mutex = CreateMutexW(nullptr, FALSE, L"Local\\RigLight.SingleInstance");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {

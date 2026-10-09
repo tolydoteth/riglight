@@ -28,6 +28,7 @@ struct Dimm {
     std::string model;
     std::vector<CorsairLedColor> leds;  // ids from CorsairGetLedPositions
     bool controlled = false;
+    CorsairError lastSetError = CE_Success;  // setLedColors errors are logged on change only
 };
 
 // Session + exclusive-control lifecycle for the RAM. Not thread-safe: the owner (win/corsair_ram)
@@ -62,7 +63,6 @@ private:
 
     SdkApi api_;
     std::function<void(const std::string&)> log_;
-    CorsairError lastSetError_ = CE_Success;
     CorsairEventHandler onEvent_ = nullptr;
     void* ctx_ = nullptr;
     bool started_ = false;

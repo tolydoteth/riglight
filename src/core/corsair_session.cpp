@@ -89,8 +89,8 @@ void CorsairSession::writeColor(Rgb c) {
             l.a = 255;
         }
         const CorsairError e = api_.setLedColors(d.id.c_str(), (int)d.leds.size(), d.leds.data());
-        if (e != lastSetError_) log("  setLedColors(" + d.id + ") -> error " + std::to_string((int)e));
-        lastSetError_ = e;  // log changes only: this runs at 20 fps while animating
+        if (e != d.lastSetError) log("  setLedColors(" + d.id + ") -> error " + std::to_string((int)e));
+        d.lastSetError = e;  // log changes only: this runs at 20 fps while animating
         if (e == CE_NoControl) d.controlled = false;
     }
 }

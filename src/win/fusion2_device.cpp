@@ -54,7 +54,12 @@ bool Fusion2Device::reinit() {
 }
 
 bool Fusion2Device::apply(const LightState& s) {
-    if (!ready_ && !reinit()) return false;
+    if (!ready_) {
+        // Explicit reinit() (resume, device arrival) is never gated; this lazy one is, so a
+        // missing board can't turn every slider tick into a full discovery + init script.
+        if (!applyReinitGate_.allow(GetTickCount64()) || !reinit()) return false;
+        applyReinitGate_.reset();
+    }
     // Animated effects follow RigLight's clock (see LightController); start them at frame 0.
     const auto steps = isAnimated(s) ? frameSteps(ramColorAt(s, 0)) : applySteps(s);
     if (!run(dev_, steps, nullptr)) {

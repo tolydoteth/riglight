@@ -24,6 +24,7 @@ private:
     void refreshTray();
     void showMenu(POINT pt);
     void showPanel();
+    void addTrayIcon();
     void quit();
 
     HINSTANCE inst_;
@@ -38,6 +39,7 @@ private:
     HICON iconOn_ = nullptr;
     HICON iconOff_ = nullptr;
     bool shutDown_ = false;
+    int trayRetries_ = 0;
 };
 
 }  // namespace rl

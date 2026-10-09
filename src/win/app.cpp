@@ -44,8 +44,7 @@ int App::run(const LightState& initial) {
     lights_->setRamLeadMs(ramLeadMs_);
     lights_->start(state_);
     panel_.create(inst_, [this](const LightState& s) { changeState(s); });
-    tray_.add(hwnd_, state_.on ? iconOn_ : iconOff_, L"RigLight");
-    refreshTray();
+    addTrayIcon();
     SetTimer(hwnd_, kRetryTimerId, 10000, nullptr);
 
     MSG msg;
@@ -84,6 +83,18 @@ void App::refreshTray() {
     panel_.update(state_, lights_->motherboardAvailable(), lights_->ramAvailable());
 }
 
+void App::addTrayIcon() {
+    if (tray_.add(hwnd_, state_.on ? iconOn_ : iconOff_, L"RigLight")) {
+        KillTimer(hwnd_, kTrayRetryTimerId);
+        trayRetries_ = 0;
+        refreshTray();
+    } else if (trayRetries_++ < 10) {
+        SetTimer(hwnd_, kTrayRetryTimerId, 1000, nullptr);  // the shell may still be starting
+    } else {
+        KillTimer(hwnd_, kTrayRetryTimerId);
+    }
+}
+
 void App::showPanel() {
     panel_.show(tray_.iconRect(), state_, lights_->motherboardAvailable(), lights_->ramAvailable());
 }
@@ -105,6 +116,7 @@ void App::quit() {
     if (shutDown_) return;
     shutDown_ = true;
     KillTimer(hwnd_, kRetryTimerId);
+    KillTimer(hwnd_, kTrayRetryTimerId);
     lights_->shutdown();  // stop animation, release control, disconnect
     tray_.remove();
     panel_.destroy();
@@ -113,8 +125,8 @@ void App::quit() {
 
 LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == taskbarCreated_ && taskbarCreated_ != 0) {  // Explorer restarted
-        tray_.add(hwnd_, state_.on ? iconOn_ : iconOff_, L"RigLight");
-        refreshTray();
+        trayRetries_ = 0;
+        addTrayIcon();
         return 0;
     }
     switch (msg) {
@@ -173,6 +185,8 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             if (wp == kRetryTimerId) {
                 lights_->onRetryTimer();
                 refreshTray();
+            } else if (wp == kTrayRetryTimerId) {
+                addTrayIcon();
             }
             return 0;
         case WM_POWERBROADCAST:

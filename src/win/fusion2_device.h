@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 
+#include "core/anim_clock.h"
 #include "core/fusion2.h"
 #include "core/light_state.h"
 #include "win/hid.h"
@@ -29,6 +30,7 @@ private:
     HidDevice dev_;
     bool boardOk_ = false;
     bool ready_ = false;
+    RetryGate applyReinitGate_{2000};  // apply() may be called 25x/s (slider) while the board is gone
 };
 
 }  // namespace rl

@@ -19,6 +19,7 @@ struct Fake {
     CorsairLedColor last{};
     int lastSize = 0;
     std::vector<std::string> held;  // like iCUE: requesting control you already hold fails
+    CorsairError setResultDimm1 = CE_Success;
 };
 Fake g;
 
@@ -61,10 +62,11 @@ CorsairError fReleaseControl(const char* id) {
     std::erase(g.held, std::string(id));
     return CE_Success;
 }
-CorsairError fSetLedColors(const char*, int size, const CorsairLedColor* c) {
+CorsairError fSetLedColors(const char* id, int size, const CorsairLedColor* c) {
     ++g.sets;
     g.lastSize = size;
     if (size > 0) g.last = c[0];
+    if (g.setResultDimm1 != CE_Success && std::string(id) == "{dimm-1}") return g.setResultDimm1;
     return g.setResult;
 }
 
@@ -236,6 +238,22 @@ TEST(corsair_reconnect_after_connection_lost_requests_control_again) {
     g.held.clear();  // iCUE restarted: nobody holds anything
     s.onSessionState(CSS_Connected);
     CHECK(s.available());
+}
+
+TEST(corsair_write_errors_log_once_per_dimm) {
+    // Review finding: with DIMMs returning different errors, a shared "last error" logged every
+    // frame (40 lines/s). Each DIMM tracks its own last error.
+    g = Fake{};
+    g.setResultDimm1 = CE_InvalidArguments;  // not NoControl, so it stays "controlled"
+    CorsairSession s(fakeApi());
+    int lines = 0;
+    s.setLogger([&](const std::string& l) { lines += l.find("setLedColors") != std::string::npos; });
+    s.start(nullptr, nullptr, nullptr);
+    s.onSessionState(CSS_Connected);
+    LightState br = red();
+    br.effect = Effect::Breathing;
+    for (uint32_t t = 0; t < 2000; t += 50) s.writeFrame(br, t);
+    CHECK_EQ(lines, 1);  // dimm-1's error, logged once
 }
 
 TEST(corsair_write_frame_uses_effect_time) {
