@@ -1,3 +1,7 @@
 build/
 *.exe
 *.zip
+*.dll
+!third_party/**/*.dll
+riglight-probe.txt
+.superpowers/
