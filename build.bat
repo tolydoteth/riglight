@@ -7,7 +7,7 @@ if not exist build\build.ninja (
 cmake --build build || exit /b 1
 ctest --test-dir build --output-on-failure || exit /b 1
 if not exist build\RigLight.exe exit /b 0
-tasklist /fi "imagename eq RigLight.exe" | find /i "RigLight.exe" >nul && (
+tasklist /fi "imagename eq RigLight.exe" | "%SystemRoot%\System32\find.exe" /i "RigLight.exe" >nul && (
   echo RigLight is running: quit it from the tray to update RigLight.exe here.
   exit /b 0
 )
