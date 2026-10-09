@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "core/effects.h"
+#include "win/log.h"
 #include "win/messages.h"
 
 namespace rl {
@@ -23,10 +24,14 @@ void CorsairRam::onEventCb(void* ctx, const CorsairEvent* e) {
 
 void CorsairRam::start() {
     sdk_ = loadCorsairSdk();
-    if (!sdk_.module) return;  // RAM unavailable (missing DLL or VC++ runtime)
+    if (!sdk_.module) {  // RAM unavailable (missing DLL or VC++ runtime)
+        logLine("iCUE SDK DLL failed to load, error " + std::to_string(sdk_.error));
+        return;
+    }
     {
         std::lock_guard lk(mu_);
         session_ = std::make_unique<CorsairSession>(sdk_.api);
+        session_->setLogger([](const std::string& s) { logLine("ram: " + s); });
         session_->start(&CorsairRam::onStateCb, &CorsairRam::onEventCb, hwnd_);
     }
     anim_ = std::thread([this] { animLoop(); });

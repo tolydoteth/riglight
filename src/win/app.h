@@ -5,6 +5,7 @@
 
 #include "core/light_state.h"
 #include "win/light_controller.h"
+#include "win/panel.h"
 #include "win/tray.h"
 
 namespace rl {
@@ -22,6 +23,7 @@ private:
     void changeState(const LightState& s);
     void refreshTray();
     void showMenu(POINT pt);
+    void showPanel();
     void quit();
 
     HINSTANCE inst_;
@@ -31,6 +33,7 @@ private:
     LightState state_;
     std::unique_ptr<LightController> lights_;
     Tray tray_;
+    Panel panel_;
     HICON iconOn_ = nullptr;
     HICON iconOff_ = nullptr;
     bool shutDown_ = false;

@@ -1,6 +1,7 @@
 #pragma once
 #include <iCUESDK/iCUESDK.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,7 @@ struct Dimm {
 class CorsairSession {
 public:
     explicit CorsairSession(const SdkApi& api);
+    void setLogger(std::function<void(const std::string&)> log) { log_ = std::move(log); }
 
     CorsairError start(CorsairSessionStateChangedHandler onState, CorsairEventHandler onEvent, void* ctx);
     void onSessionState(CorsairSessionState state);
@@ -54,8 +56,13 @@ private:
     void requestControl(Dimm& d);
     void writeColor(Rgb c);
     void reapply();
+    void log(const std::string& s) const {
+        if (log_) log_(s);
+    }
 
     SdkApi api_;
+    std::function<void(const std::string&)> log_;
+    CorsairError lastSetError_ = CE_Success;
     CorsairEventHandler onEvent_ = nullptr;
     void* ctx_ = nullptr;
     bool started_ = false;

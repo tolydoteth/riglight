@@ -41,6 +41,7 @@ int App::run(const LightState& initial) {
     iconOff_ = makeBulbIcon(iconSize, false);
     lights_ = std::make_unique<LightController>(hwnd_);
     lights_->start(state_);
+    panel_.create(inst_, [this](const LightState& s) { changeState(s); });
     tray_.add(hwnd_, state_.on ? iconOn_ : iconOff_, L"RigLight");
     refreshTray();
     SetTimer(hwnd_, kRetryTimerId, 10000, nullptr);
@@ -78,11 +79,17 @@ void App::refreshTray() {
     const std::wstring tip =
         widen(tooltipText(state_, lights_->motherboardAvailable(), lights_->ramAvailable()));
     tray_.update(state_.on ? iconOn_ : iconOff_, tip);
+    panel_.update(state_, lights_->motherboardAvailable(), lights_->ramAvailable());
+}
+
+void App::showPanel() {
+    panel_.show(tray_.iconRect(), state_, lights_->motherboardAvailable(), lights_->ramAvailable());
 }
 
 void App::showMenu(POINT pt) {
     HMENU m = CreatePopupMenu();
     AppendMenuW(m, MF_STRING, IDM_TOGGLE, state_.on ? L"Turn lights off" : L"Turn lights on");
+    AppendMenuW(m, MF_STRING, IDM_PANEL, L"Open panel…");
     AppendMenuW(m, MF_STRING | (autostartEnabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start with Windows");
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(m, MF_STRING, IDM_QUIT, L"Quit");
@@ -98,6 +105,7 @@ void App::quit() {
     KillTimer(hwnd_, kRetryTimerId);
     lights_->shutdown();  // stop animation, release control, disconnect
     tray_.remove();
+    panel_.destroy();
     DestroyWindow(hwnd_);
 }
 
@@ -130,6 +138,9 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
                     changeState(s);
                     return 0;
                 }
+                case IDM_PANEL:
+                    showPanel();
+                    return 0;
                 case IDM_AUTOSTART:
                     setAutostart(!autostartEnabled());
                     return 0;
@@ -137,6 +148,9 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
                     quit();
                     return 0;
             }
+            return 0;
+        case WM_APP_SHOW_PANEL:
+            showPanel();
             return 0;
         case WM_APP_RELOAD:
             if (auto text = readTextFile(settingsPath())) changeState(parseSettings(*text));

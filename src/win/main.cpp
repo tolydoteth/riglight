@@ -8,6 +8,7 @@
 #include "win/autostart.h"
 #include "win/files.h"
 #include "win/fusion2_device.h"
+#include "win/log.h"
 #include "win/messages.h"
 #include "win/sdk_loader.h"
 #include "win/text.h"
@@ -57,6 +58,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         return 0;
     }
     if (firstRun) setAutostart(true);
+    logReset();
     App app(inst);
     const int rc = app.run(state);
     CloseHandle(mutex);

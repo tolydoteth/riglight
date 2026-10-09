@@ -18,6 +18,7 @@ struct Fake {
     int sets = 0;
     CorsairLedColor last{};
     int lastSize = 0;
+    std::vector<std::string> held;  // like iCUE: requesting control you already hold fails
 };
 Fake g;
 
@@ -50,9 +51,16 @@ CorsairError fUnsubscribe() { g.calls.push_back("unsubscribe"); return CE_Succes
 CorsairError fRequestControl(const char* id, CorsairAccessLevel level) {
     CHECK_EQ((int)level, (int)CAL_ExclusiveLightingControl);
     g.calls.push_back(std::string("request:") + id);
+    for (const auto& h : g.held)
+        if (h == id) return CE_NoControl;  // observed on the real SDK: re-request while holding
+    if (g.controlResult == CE_Success) g.held.push_back(id);
     return g.controlResult;
 }
-CorsairError fReleaseControl(const char* id) { g.calls.push_back(std::string("release:") + id); return CE_Success; }
+CorsairError fReleaseControl(const char* id) {
+    g.calls.push_back(std::string("release:") + id);
+    std::erase(g.held, std::string(id));
+    return CE_Success;
+}
 CorsairError fSetLedColors(const char*, int size, const CorsairLedColor* c) {
     ++g.sets;
     g.lastSize = size;
@@ -203,6 +211,31 @@ TEST(corsair_resume_and_device_event_reenumerate_and_reapply) {
     s.onDeviceConnected();
     CHECK_EQ(count("getDevices"), gets + 2);
     CHECK_EQ(g.sets, sets + 4);
+}
+
+TEST(corsair_device_event_after_connect_keeps_control) {
+    // iCUE fires a device-connected event right after subscribing; re-enumerating must not
+    // lose the control we already hold.
+    g = Fake{};
+    CorsairSession s(fakeApi());
+    s.start(nullptr, nullptr, nullptr);
+    s.onSessionState(CSS_Connected);
+    s.onDeviceConnected();
+    CHECK(s.available());
+    CHECK(!s.needsRetry());
+    s.apply(red());
+    CHECK_EQ(g.last.r, 255);
+}
+
+TEST(corsair_reconnect_after_connection_lost_requests_control_again) {
+    g = Fake{};
+    CorsairSession s(fakeApi());
+    s.start(nullptr, nullptr, nullptr);
+    s.onSessionState(CSS_Connected);
+    s.onSessionState(CSS_ConnectionLost);
+    g.held.clear();  // iCUE restarted: nobody holds anything
+    s.onSessionState(CSS_Connected);
+    CHECK(s.available());
 }
 
 TEST(corsair_write_frame_uses_effect_time) {

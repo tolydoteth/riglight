@@ -16,11 +16,13 @@ CorsairError CorsairSession::start(CorsairSessionStateChangedHandler onState, Co
     onEvent_ = onEvent;
     ctx_ = ctx;
     const CorsairError e = api_.connect(onState, ctx);
+    log("connect -> error " + std::to_string((int)e));
     started_ = e == CE_Success;
     return e;
 }
 
 void CorsairSession::onSessionState(CorsairSessionState state) {
+    log("session state " + std::to_string((int)state));
     if (state == CSS_Connected) {
         connected_ = true;
         subscribed_ = api_.subscribeForEvents(onEvent_, ctx_) == CE_Success;
@@ -34,28 +36,47 @@ void CorsairSession::onSessionState(CorsairSessionState state) {
 }
 
 void CorsairSession::enumerate() {
+    std::vector<std::string> held;  // control survives re-enumeration; asking again would fail
+    for (const Dimm& d : dimms_)
+        if (d.controlled) held.push_back(d.id);
     dimms_.clear();
     CorsairDeviceFilter filter{};
     filter.deviceTypeMask = CDT_MemoryModule;
     std::vector<CorsairDeviceInfo> infos(CORSAIR_DEVICE_COUNT_MAX);
     int n = 0;
-    if (api_.getDevices(&filter, (int)infos.size(), infos.data(), &n) != CE_Success) return;
+    const CorsairError ge = api_.getDevices(&filter, (int)infos.size(), infos.data(), &n);
+    log("getDevices(memory) -> error " + std::to_string((int)ge) + ", " + std::to_string(n) + " device(s)");
+    if (ge != CE_Success) return;
     std::vector<CorsairLedPosition> pos(CORSAIR_DEVICE_LEDCOUNT_MAX);
     for (int i = 0; i < n; ++i) {
         Dimm d;
         d.id = infos[i].id;
         d.model = infos[i].model;
         int count = 0;
-        if (api_.getLedPositions(infos[i].id, (int)pos.size(), pos.data(), &count) == CE_Success) {
+        const CorsairError pe = api_.getLedPositions(infos[i].id, (int)pos.size(), pos.data(), &count);
+        if (pe == CE_Success) {
             for (int k = 0; k < count; ++k) d.leds.push_back(CorsairLedColor{pos[k].id, 0, 0, 0, 255});
         }
-        requestControl(d);
+        log("  " + d.model + " " + d.id + ": getLedPositions -> error " + std::to_string((int)pe) + ", " +
+            std::to_string(d.leds.size()) + " led(s)");
+        bool wasHeld = false;
+        for (const auto& id : held) wasHeld = wasHeld || id == d.id;
+        if (wasHeld) d.controlled = true;
+        else requestControl(d);
         dimms_.push_back(std::move(d));
     }
 }
 
 void CorsairSession::requestControl(Dimm& d) {
-    d.controlled = api_.requestControl(d.id.c_str(), CAL_ExclusiveLightingControl) == CE_Success;
+    CorsairError e = api_.requestControl(d.id.c_str(), CAL_ExclusiveLightingControl);
+    if (e == CE_NoControl) {
+        // iCUE also answers NoControl when *we* still hold it (e.g. after a short connection
+        // drop). Release and ask once more; if another client holds it this still fails.
+        api_.releaseControl(d.id.c_str());
+        e = api_.requestControl(d.id.c_str(), CAL_ExclusiveLightingControl);
+    }
+    d.controlled = e == CE_Success;
+    log("  requestControl(" + d.id + ") -> error " + std::to_string((int)e));
 }
 
 void CorsairSession::writeColor(Rgb c) {
@@ -67,8 +88,10 @@ void CorsairSession::writeColor(Rgb c) {
             l.b = c.b;
             l.a = 255;
         }
-        if (api_.setLedColors(d.id.c_str(), (int)d.leds.size(), d.leds.data()) == CE_NoControl)
-            d.controlled = false;
+        const CorsairError e = api_.setLedColors(d.id.c_str(), (int)d.leds.size(), d.leds.data());
+        if (e != lastSetError_) log("  setLedColors(" + d.id + ") -> error " + std::to_string((int)e));
+        lastSetError_ = e;  // log changes only: this runs at 20 fps while animating
+        if (e == CE_NoControl) d.controlled = false;
     }
 }
 
