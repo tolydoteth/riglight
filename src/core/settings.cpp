@@ -1,5 +1,6 @@
 #include "core/settings.h"
 
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <vector>
@@ -26,17 +27,21 @@ static std::optional<int> parseInt(std::string_view s) {
     return v;
 }
 
-std::string serializeSettings(const LightState& s) {
+static int clampLead(int ms) { return std::clamp(ms, 0, 2000); }
+
+std::string serializeSettings(const LightState& s, int ramLeadMs) {
     std::string out = "[lights]\n";
     out += std::string("on=") + (s.on ? "1" : "0") + "\n";
     out += "color=" + colorHex(s.color) + "\n";
     out += std::string("effect=") + effectName(s.effect) + "\n";
     out += "brightness=" + std::to_string(clampBrightness(s.brightness)) + "\n";
+    if (clampLead(ramLeadMs) != kDefaultRamLeadMs) out += "ram_lead_ms=" + std::to_string(clampLead(ramLeadMs)) + "\n";
     return out;
 }
 
-LightState parseSettings(std::string_view text) {
-    LightState s;
+// Calls fn(lowercased key, trimmed value) for every key=value line.
+template <class Fn>
+static void forEachKey(std::string_view text, Fn fn) {
     size_t pos = 0;
     while (pos <= text.size()) {
         size_t end = text.find('\n', pos);
@@ -46,8 +51,22 @@ LightState parseSettings(std::string_view text) {
         if (line.empty() || line[0] == ';' || line[0] == '#' || line[0] == '[') continue;
         const size_t eq = line.find('=');
         if (eq == std::string_view::npos) continue;
-        const std::string key = lowerStr(trim(line.substr(0, eq)));
-        const std::string_view val = trim(line.substr(eq + 1));
+        fn(lowerStr(trim(line.substr(0, eq))), trim(line.substr(eq + 1)));
+    }
+}
+
+int parseRamLeadMs(std::string_view text) {
+    int lead = kDefaultRamLeadMs;
+    forEachKey(text, [&](const std::string& key, std::string_view val) {
+        if (key == "ram_lead_ms")
+            if (auto v = parseInt(val)) lead = clampLead(*v);
+    });
+    return lead;
+}
+
+LightState parseSettings(std::string_view text) {
+    LightState s;
+    forEachKey(text, [&](const std::string& key, std::string_view val) {
         if (key == "on") {
             if (val == "1") s.on = true;
             else if (val == "0") s.on = false;
@@ -58,7 +77,7 @@ LightState parseSettings(std::string_view text) {
         } else if (key == "brightness") {
             if (auto b = parseInt(val)) s.brightness = clampBrightness(*b);
         }
-    }
+    });
     return s;
 }
 

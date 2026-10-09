@@ -31,6 +31,7 @@ private:
     UINT taskbarCreated_ = 0;
     HDEVNOTIFY devNotify_ = nullptr;
     LightState state_;
+    int ramLeadMs_ = 0;
     std::unique_ptr<LightController> lights_;
     Tray tray_;
     Panel panel_;

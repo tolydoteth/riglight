@@ -1,8 +1,5 @@
 #include "win/corsair_ram.h"
 
-#include <chrono>
-
-#include "core/effects.h"
 #include "win/log.h"
 #include "win/messages.h"
 
@@ -28,43 +25,25 @@ void CorsairRam::start() {
         logLine("iCUE SDK DLL failed to load, error " + std::to_string(sdk_.error));
         return;
     }
-    {
-        std::lock_guard lk(mu_);
-        session_ = std::make_unique<CorsairSession>(sdk_.api);
-        session_->setLogger([](const std::string& s) { logLine("ram: " + s); });
-        session_->start(&CorsairRam::onStateCb, &CorsairRam::onEventCb, hwnd_);
-    }
-    anim_ = std::thread([this] { animLoop(); });
-}
-
-void CorsairRam::animLoop() {
-    std::unique_lock lk(mu_);
-    while (!quit_) {
-        if (!session_ || !isAnimated(state_)) {
-            cv_.wait(lk);
-            continue;
-        }
-        session_->writeFrame(state_, (uint32_t)(GetTickCount64() - t0_));
-        cv_.wait_for(lk, std::chrono::milliseconds(timing::kFrameMs));
-    }
+    std::lock_guard lk(mu_);
+    session_ = std::make_unique<CorsairSession>(sdk_.api);
+    session_->setLogger([](const std::string& s) { logLine("ram: " + s); });
+    session_->start(&CorsairRam::onStateCb, &CorsairRam::onEventCb, hwnd_);
 }
 
 void CorsairRam::apply(const LightState& s) {
-    {
-        std::lock_guard lk(mu_);
-        state_ = s;
-        t0_ = GetTickCount64();  // restart in step with the board's hardware effect
-        if (session_) session_->apply(s);
-    }
-    cv_.notify_all();
+    std::lock_guard lk(mu_);
+    if (session_) session_->apply(s);
+}
+
+void CorsairRam::writeFrame(const LightState& s, uint32_t tMs) {
+    std::lock_guard lk(mu_);
+    if (session_) session_->writeFrame(s, tMs);
 }
 
 void CorsairRam::onSessionState(int state) {
-    {
-        std::lock_guard lk(mu_);
-        if (session_) session_->onSessionState((CorsairSessionState)state);
-    }
-    cv_.notify_all();
+    std::lock_guard lk(mu_);
+    if (session_) session_->onSessionState((CorsairSessionState)state);
 }
 
 void CorsairRam::onDeviceConnected() {
@@ -83,12 +62,6 @@ void CorsairRam::onRetryTimer() {
 }
 
 void CorsairRam::shutdown() {
-    {
-        std::lock_guard lk(mu_);
-        quit_ = true;
-    }
-    cv_.notify_all();
-    if (anim_.joinable()) anim_.join();  // joined before release/disconnect
     std::lock_guard lk(mu_);
     if (session_) {
         session_->stop();

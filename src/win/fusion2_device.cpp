@@ -4,6 +4,7 @@
 
 #include <cwctype>
 
+#include "core/effects.h"
 #include "win/board_id.h"
 #include "win/text.h"
 
@@ -54,7 +55,18 @@ bool Fusion2Device::reinit() {
 
 bool Fusion2Device::apply(const LightState& s) {
     if (!ready_ && !reinit()) return false;
-    if (!run(dev_, applySteps(s), nullptr)) {
+    // Animated effects follow RigLight's clock (see LightController); start them at frame 0.
+    const auto steps = isAnimated(s) ? frameSteps(ramColorAt(s, 0)) : applySteps(s);
+    if (!run(dev_, steps, nullptr)) {
+        close();
+        return false;
+    }
+    return true;
+}
+
+bool Fusion2Device::writeFrame(Rgb color) {
+    if (!ready_) return false;
+    if (!run(dev_, frameSteps(color), nullptr)) {
         close();
         return false;
     }

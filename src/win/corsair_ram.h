@@ -1,10 +1,8 @@
 #pragma once
 #include <windows.h>
 
-#include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <thread>
 
 #include "core/corsair_session.h"
 #include "core/light_state.h"
@@ -12,8 +10,9 @@
 
 namespace rl {
 
-// Owns the SDK, the session state machine and the animation thread. Every public method runs
-// on the UI thread; SDK callbacks only post WM_APP_CORSAIR_* messages to `notify`.
+// Owns the SDK and the session state machine. Public methods are called from the UI thread,
+// except writeFrame (LightController's animation thread); one mutex serialises them all.
+// SDK callbacks only post WM_APP_CORSAIR_* messages to `notify`.
 class CorsairRam {
 public:
     explicit CorsairRam(HWND notify);
@@ -23,6 +22,7 @@ public:
 
     void start();
     void apply(const LightState& s);
+    void writeFrame(const LightState& s, uint32_t tMs);
     void onSessionState(int state);
     void onDeviceConnected();
     void onResume();
@@ -34,17 +34,11 @@ public:
 private:
     static void onStateCb(void* ctx, const CorsairSessionStateChanged* e);
     static void onEventCb(void* ctx, const CorsairEvent* e);
-    void animLoop();
 
     HWND hwnd_;
     LoadedSdk sdk_;
     std::unique_ptr<CorsairSession> session_;
     mutable std::mutex mu_;
-    std::condition_variable cv_;
-    std::thread anim_;
-    bool quit_ = false;
-    LightState state_;
-    ULONGLONG t0_ = 0;
 };
 
 }  // namespace rl

@@ -73,5 +73,9 @@ std::vector<Step> probeSteps();                // CC 60 + read, CC 61 + read; no
 std::vector<Step> initSteps(const Report& r);  // run after infoSteps
 Packet effectPacket(const Zone& z, const LightState& s);
 std::vector<Step> applySteps(const LightState& s);
+// One animation frame: every zone static ("direct", period0 = 0) at full max_brightness with the
+// already-scaled frame color, then commit. Used for breathing/rainbow so the board follows
+// RigLight's clock instead of its own effect timer (which drifted against the RAM).
+std::vector<Step> frameSteps(Rgb color);
 
 }  // namespace rl::fusion2

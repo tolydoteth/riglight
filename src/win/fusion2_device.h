@@ -14,6 +14,9 @@ public:
     bool supportedBoard() const { return boardOk_; }
     bool reinit();                     // close, find, open, read info, run init script
     bool apply(const LightState& s);   // reinit first if needed; closes on failure
+    // One animation frame (already-scaled color). Never reinits: it runs 20x a second on the
+    // animation thread, so a lost device waits for the UI thread's retry/resume/arrival.
+    bool writeFrame(Rgb color);
     void close();
     bool available() const { return ready_; }
     // True if a WM_DEVICECHANGE interface path is our control collection.

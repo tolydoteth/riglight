@@ -45,10 +45,11 @@ Rgb ramColorAt(const LightState& s, uint32_t tMs) {
         case Effect::Static:
             return scaleColor(s.color, pct);
         case Effect::Breathing: {
+            // The board's hardware pulse starts bright: fall, hold dark, rise (matched live).
             const uint32_t p = tMs % kPulsePeriodMs;
             double f = 0;
-            if (p < kPulseRiseMs) f = double(p) / kPulseRiseMs;
-            else if (p < kPulseRiseMs + kPulseFallMs) f = 1.0 - double(p - kPulseRiseMs) / kPulseFallMs;
+            if (p < kPulseFallMs) f = 1.0 - double(p) / kPulseFallMs;
+            else if (p >= kPulseFallMs + kPulseHoldMs) f = double(p - kPulseFallMs - kPulseHoldMs) / kPulseRiseMs;
             return scaleColor(s.color, pct * f);
         }
         case Effect::Rainbow: {

@@ -40,6 +40,8 @@ int App::run(const LightState& initial) {
     iconOn_ = makeBulbIcon(iconSize, true);
     iconOff_ = makeBulbIcon(iconSize, false);
     lights_ = std::make_unique<LightController>(hwnd_);
+    ramLeadMs_ = parseRamLeadMs(readTextFile(settingsPath()).value_or(""));
+    lights_->setRamLeadMs(ramLeadMs_);
     lights_->start(state_);
     panel_.create(inst_, [this](const LightState& s) { changeState(s); });
     tray_.add(hwnd_, state_.on ? iconOn_ : iconOff_, L"RigLight");
@@ -70,7 +72,7 @@ LRESULT CALLBACK App::wndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 void App::changeState(const LightState& s) {
     state_ = s;
     state_.brightness = clampBrightness(state_.brightness);
-    writeTextFileAtomic(settingsPath(), serializeSettings(state_));
+    writeTextFileAtomic(settingsPath(), serializeSettings(state_, ramLeadMs_));
     lights_->apply(state_);
     refreshTray();
 }
@@ -153,7 +155,11 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             showPanel();
             return 0;
         case WM_APP_RELOAD:
-            if (auto text = readTextFile(settingsPath())) changeState(parseSettings(*text));
+            if (auto text = readTextFile(settingsPath())) {
+                ramLeadMs_ = parseRamLeadMs(*text);
+                lights_->setRamLeadMs(ramLeadMs_);
+                changeState(parseSettings(*text));
+            }
             return 0;
         case WM_APP_CORSAIR_SESSION:
             lights_->onCorsairSession((int)wp);

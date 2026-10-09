@@ -36,20 +36,21 @@ TEST(effects_scale_color_rounds_and_clamps) {
 }
 
 TEST(effects_breathing_curve) {
+    // Same order as the board's hardware pulse (seen live): starts bright, fades, holds dark,
+    // rises. Starting dark put the RAM half a period (~1.1 s) behind the board.
     const LightState s = make(Effect::Breathing, Rgb{200, 0, 0}, 100);
     CHECK(isAnimated(s));
-    CHECK(ramColorAt(s, 0) == Rgb{});                       // start of rise
-    CHECK(ramColorAt(s, 500) == (Rgb{100, 0, 0}));          // half-way up
-    CHECK(ramColorAt(s, 1000) == (Rgb{200, 0, 0}));         // peak
-    CHECK(ramColorAt(s, 1500) == (Rgb{100, 0, 0}));         // half-way down
-    CHECK(ramColorAt(s, 2000) == Rgb{});                    // bottom
-    CHECK(ramColorAt(s, 2100) == Rgb{});                    // hold at minimum
-    CHECK(ramColorAt(s, 2200 + 1000) == (Rgb{200, 0, 0}));  // next period peak
+    CHECK(ramColorAt(s, 0) == (Rgb{200, 0, 0}));            // peak at apply
+    CHECK(ramColorAt(s, 500) == (Rgb{100, 0, 0}));          // half-way down
+    CHECK(ramColorAt(s, 1000) == Rgb{});                    // bottom
+    CHECK(ramColorAt(s, 1100) == Rgb{});                    // hold at minimum
+    CHECK(ramColorAt(s, 1700) == (Rgb{100, 0, 0}));         // half-way up
+    CHECK(ramColorAt(s, 2200) == (Rgb{200, 0, 0}));         // next period peak
 }
 
 TEST(effects_breathing_respects_brightness) {
     const LightState s = make(Effect::Breathing, Rgb{200, 0, 0}, 50);
-    CHECK(ramColorAt(s, 1000) == (Rgb{100, 0, 0}));
+    CHECK(ramColorAt(s, 0) == (Rgb{100, 0, 0}));
 }
 
 TEST(effects_cycle_colors) {

@@ -245,9 +245,9 @@ TEST(corsair_write_frame_uses_effect_time) {
     s.onSessionState(CSS_Connected);
     LightState br = red();
     br.effect = Effect::Breathing;
-    s.writeFrame(br, 1000);  // pulse peak
+    s.writeFrame(br, 0);  // pulse peak
     CHECK_EQ(g.last.r, 255);
-    s.writeFrame(br, 0);  // pulse bottom
+    s.writeFrame(br, 1000);  // pulse bottom
     CHECK_EQ(g.last.r, 0);
 }
 

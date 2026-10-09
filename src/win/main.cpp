@@ -48,7 +48,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         if (!s) return 2;
         state = *s;
     }
-    if (haveSet || firstRun) writeTextFileAtomic(path, serializeSettings(state));
+    if (haveSet || firstRun) writeTextFileAtomic(path, serializeSettings(state, parseRamLeadMs(text.value_or(""))));
 
     HANDLE mutex = CreateMutexW(nullptr, FALSE, L"Local\\RigLight.SingleInstance");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {

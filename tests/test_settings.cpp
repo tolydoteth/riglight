@@ -57,6 +57,19 @@ TEST(color_hex_parsing) {
     CHECK_STR(colorHex(Rgb{1, 2, 255}), "0102FF");
 }
 
+TEST(settings_ram_lead_ms) {
+    CHECK_EQ(parseRamLeadMs("[lights]\non=1\n"), kDefaultRamLeadMs);
+    CHECK_EQ(parseRamLeadMs("ram_lead_ms=450\r\n"), 450);
+    CHECK_EQ(parseRamLeadMs("ram_lead_ms=abc"), kDefaultRamLeadMs);
+    CHECK_EQ(parseRamLeadMs("ram_lead_ms=-50"), 0);      // clamped
+    CHECK_EQ(parseRamLeadMs("ram_lead_ms=99999"), 2000);  // clamped
+    // the lights keys still parse, and serializing keeps a hand-set lead
+    LightState s;
+    CHECK(parseSettings("ram_lead_ms=450\non=0\n").on == false);
+    CHECK_EQ(parseRamLeadMs(serializeSettings(s, 450)), 450);
+    CHECK_EQ(parseRamLeadMs(serializeSettings(s)), kDefaultRamLeadMs);
+}
+
 TEST(state_spec_parsing) {
     const LightState base;
     auto off = parseStateSpec("off", base);

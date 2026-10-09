@@ -144,4 +144,13 @@ std::vector<Step> applySteps(const LightState& s) {
     return v;
 }
 
+std::vector<Step> frameSteps(Rgb color) {
+    LightState s;
+    s.on = true;
+    s.effect = Effect::Static;
+    s.color = color;
+    s.brightness = kMaxBrightness;
+    return applySteps(s);
+}
+
 }  // namespace rl::fusion2

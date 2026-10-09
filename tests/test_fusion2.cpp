@@ -156,6 +156,26 @@ TEST(fusion2_apply_script) {
     CHECK(steps[5].bytes == bytes({0xCC, 0x28, 0xF4, 0x00, 0x00, 0x00}));
 }
 
+TEST(fusion2_frame_script_is_direct_static) {
+    // Animated effects are driven frame by frame from RigLight's clock (same clock as the RAM):
+    // one static packet per zone with the frame color, period0 = 0 ("direct"), then commit.
+    const auto steps = frameSteps(Rgb{10, 20, 30});
+    CHECK_EQ(steps.size(), 6u);
+    const uint8_t regs[5] = {0x25, 0x26, 0x27, 0x22, 0x24};
+    for (int i = 0; i < 5; ++i) {
+        const Packet& p = steps[i].bytes;
+        CHECK_EQ(p[1], regs[i]);
+        CHECK_EQ(p[2], kBoardZones[i].mask);
+        CHECK_EQ(p[11], kEffectStatic);
+        CHECK_EQ(p[12], 0xFF);
+        CHECK_EQ(p[14], 30); CHECK_EQ(p[15], 20); CHECK_EQ(p[16], 10);
+        CHECK_EQ(p[22], 0); CHECK_EQ(p[23], 0);
+        CHECK(!isForbidden(p));
+        CHECK_EQ(steps[i].waitMs, 0);
+    }
+    CHECK(steps[5].bytes == bytes({0xCC, 0x28, 0xF4, 0x00, 0x00, 0x00}));
+}
+
 TEST(fusion2_zone_masks_or_to_commit_mask) {
     uint32_t m = 0;
     for (const Zone& z : kBoardZones) m |= z.mask;
