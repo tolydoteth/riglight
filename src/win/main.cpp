@@ -5,11 +5,12 @@
 
 #include "win/files.h"
 #include "win/fusion2_device.h"
+#include "win/sdk_loader.h"
 
 using namespace rl;
 
 static int runProbe(const std::wstring& outPath) {
-    const std::string text = Fusion2Device::probe();
+    const std::string text = Fusion2Device::probe() + "\n" + corsairProbe();
     return writeTextFileAtomic(outPath, text) ? 0 : 1;
 }
 
