@@ -2,6 +2,7 @@ build/
 *.exe
 *.zip
 *.dll
-!third_party/**/*.dll
 riglight-probe.txt
 .superpowers/
+# Corsair's iCUE SDK has no redistribution license: build.bat downloads it from Corsair's release.
+third_party/iCUESDK/

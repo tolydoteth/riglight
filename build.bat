@@ -1,6 +1,11 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+rem Corsair's iCUE SDK (headers + DLL) is not redistributable here: fetch the official release once.
+if not exist third_party\iCUESDK\include\iCUESDK\iCUESDK.h (
+  echo Downloading Corsair iCUE SDK 4.0.84 from github.com/CorsairOfficial/cue-sdk ...
+  powershell -NoProfile -Command "$ErrorActionPreference='Stop'; $z=Join-Path $env:TEMP 'iCUESDK_4.0.84.zip'; Invoke-WebRequest 'https://github.com/CorsairOfficial/cue-sdk/releases/download/v4.0.84/iCUESDK_4.0.84.zip' -OutFile $z; Expand-Archive -Force $z third_party; Remove-Item $z" || exit /b 1
+)
 if not exist build\build.ninja (
   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++ || exit /b 1
 )
